@@ -1,0 +1,1877 @@
+
+Claude가 응답을 완료했습니다
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>승부차기 1v1 멀티 대결 (Penalty Shootout Multi)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      user-select: none;
+    }
+    .pulse-glow {
+      animation: pulseGlow 1.8s infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+      50% { box-shadow: 0 0 28px rgba(16, 185, 129, 0.8); }
+    }
+    .kick-btn-glow:hover {
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-emerald-500 selection:text-white">
+
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" id="btn-header-home" title="로비로 이동">
+        <div class="bg-gradient-to-tr from-emerald-500 to-teal-400 p-2 rounded-xl text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
+          <i class="fa-solid fa-futbol"></i>
+        </div>
+        <div>
+          <h1 class="font-black text-lg leading-tight flex items-center gap-1.5">
+            승부차기 1v1 대결
+            <span class="text-xs text-slate-400 font-normal hover:text-emerald-400 transition"><i class="fa-solid fa-house"></i></span>
+          </h1>
+          <p class="text-xs text-slate-400" id="firebase-status"><i class="fa-solid fa-circle-notch fa-spin text-amber-500 mr-1"></i>서버 연결 중...</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <div class="bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-2">
+          <i class="fa-solid fa-trophy text-amber-400"></i>
+          <span class="text-xs text-slate-400">내 통산 승리:</span>
+          <span id="stat-wins" class="font-bold text-amber-400">0</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto w-full px-4 py-4 flex-grow flex flex-col justify-center">
+
+    <!-- Lobby Screen -->
+    <div id="screen-lobby" class="space-y-6 max-w-xl mx-auto w-full">
+      <!-- Mode Tabs -->
+      <div class="grid grid-cols-2 gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
+        <button id="tab-single" class="py-3 font-bold text-sm rounded-xl transition flex items-center justify-center space-x-2 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-robot"></i>
+          <span>AI 연습 모드</span>
+        </button>
+        <button id="tab-multi" class="py-3 font-bold text-sm rounded-xl transition flex items-center justify-center space-x-2 bg-emerald-600 text-white shadow-md">
+          <i class="fa-solid fa-users"></i>
+          <span>실시간 멀티 대결</span>
+        </button>
+      </div>
+
+      <!-- Single Player Panel -->
+      <div id="lobby-single-panel" class="hidden bg-slate-900/60 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl backdrop-blur space-y-6">
+        <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto text-3xl border border-emerald-500/30">
+          <i class="fa-solid fa-bullseye"></i>
+        </div>
+        <div>
+          <h2 class="text-2xl font-bold mb-2">AI 키퍼와의 슈팅 연습</h2>
+          <p class="text-slate-400 text-sm leading-relaxed">
+            컴퓨터 AI와 함께 5회의 승부차기 대결을 진행합니다.<br>방향 예측과 예리한 슈팅 감각을 익혀보세요!
+          </p>
+        </div>
+
+        <button id="btn-start-single" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/25 transition transform active:scale-98 flex items-center justify-center space-x-2">
+          <span>AI 싱글 대결 시작</span>
+          <i class="fa-solid fa-play"></i>
+        </button>
+      </div>
+
+      <!-- Multiplayer Panel -->
+      <div id="lobby-multi-panel" class="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur space-y-5">
+        
+        <!-- Player Nickname Input -->
+        <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+          <label class="block text-xs font-semibold text-slate-400">내 선수 닉네임</label>
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-user-gear text-emerald-400"></i>
+            <input type="text" id="user-nickname-input" class="bg-slate-900 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 w-full focus:outline-none focus:border-emerald-500" placeholder="닉네임을 입력하세요">
+          </div>
+        </div>
+
+        <!-- Room Buttons -->
+        <div class="grid grid-cols-2 gap-3">
+          <button id="btn-open-create-modal" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-emerald-600/25 transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-plus-circle"></i>
+            <span>대결방 만들기</span>
+          </button>
+          <button id="btn-open-join-modal" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-2xl border border-slate-700 transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-key"></i>
+            <span>코드로 입장</span>
+          </button>
+        </div>
+
+        <!-- Room List -->
+        <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+          <h3 class="font-bold text-sm text-slate-300 flex items-center space-x-2">
+            <i class="fa-solid fa-futbol text-emerald-400"></i>
+            <span>오픈 대결 경기장 목록</span>
+          </h3>
+          <button id="btn-refresh-rooms" class="text-xs text-slate-400 hover:text-emerald-400 transition flex items-center space-x-1">
+            <i class="fa-solid fa-rotate"></i>
+            <span>새로고침</span>
+          </button>
+        </div>
+
+        <div id="room-list" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+          <div class="text-center py-8 text-slate-500 text-sm">
+            <i class="fa-solid fa-spinner fa-spin mr-1"></i> 경기장 목록을 불러오는 중...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room Waiting Screen -->
+    <div id="screen-room-waiting" class="hidden bg-slate-900/80 border border-slate-800 rounded-3xl p-8 max-w-xl mx-auto w-full shadow-2xl backdrop-blur space-y-6 text-center">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div class="text-left">
+          <span class="text-xs text-emerald-400 font-semibold block uppercase">경기 대기실</span>
+          <h2 id="waiting-room-title" class="text-xl font-bold">경기장 이름</h2>
+        </div>
+        <div class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-right">
+          <span class="text-[10px] text-slate-400 block">초대 코드</span>
+          <button id="btn-copy-code" class="text-sm font-black text-amber-400 hover:text-amber-300 transition flex items-center space-x-1" title="코드 복사">
+            <span id="waiting-room-code">------</span>
+            <i class="fa-solid fa-copy text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Matchup Display -->
+      <div class="grid grid-cols-2 gap-4 my-6">
+        <!-- Host -->
+        <div class="bg-slate-950 p-5 rounded-2xl border-2 border-emerald-500/50 flex flex-col items-center justify-center space-y-2 relative">
+          <span class="absolute -top-3 bg-emerald-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full">1번 키커 (HOST)</span>
+          <div class="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-2xl border border-emerald-500/40">
+            <i class="fa-solid fa-shirt"></i>
+          </div>
+          <span id="host-name-display" class="font-bold text-sm">선수 1</span>
+          <span class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-circle-check"></i> 출전 준비 완료</span>
+        </div>
+
+        <!-- Guest -->
+        <div id="guest-box-container" class="bg-slate-950 p-5 rounded-2xl border-2 border-dashed border-slate-800 flex flex-col items-center justify-center space-y-2 relative">
+          <span class="absolute -top-3 bg-slate-700 text-slate-300 text-[10px] font-extrabold px-2 py-0.5 rounded-full">2번 키커 (GUEST)</span>
+          <div id="guest-avatar" class="w-14 h-14 bg-slate-900 text-slate-500 rounded-full flex items-center justify-center text-2xl border border-slate-800">
+            <i class="fa-solid fa-user-plus"></i>
+          </div>
+          <span id="guest-name-display" class="font-bold text-sm text-slate-400">대기 중...</span>
+          <span id="guest-status-display" class="text-xs text-slate-500">상대 선수를 기다립니다</span>
+        </div>
+      </div>
+
+      <!-- Rule Reminder -->
+      <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 text-xs text-slate-400 text-left space-y-1">
+        <div class="font-bold text-emerald-400 mb-1"><i class="fa-solid fa-circle-info mr-1"></i> 경기 규칙 요약</div>
+        <div>&bull; 양 선수가 번갈아 가며 슈팅 및 키퍼 수비를 진행합니다.</div>
+        <div>&bull; 키커와 키퍼가 **같은 방향** 선택 시: **수비 성공 (막아냄)**</div>
+        <div>&bull; **다른 방향** 선택 시: **90% 골 성공 / 10% 실수 (골대 벗어남)**</div>
+        <div>&bull; 기본 5회 진행 후 동점일 경우 1회씩 서든데스로 승부를 가립니다.</div>
+      </div>
+
+      <!-- Controls -->
+      <div class="space-y-3">
+        <button id="btn-start-multi-game" disabled class="w-full bg-slate-800 text-slate-500 font-bold py-4 rounded-2xl transition flex items-center justify-center space-x-2 cursor-not-allowed">
+          <i class="fa-solid fa-futbol"></i>
+          <span id="btn-start-multi-text">상대방 입장을 기다려주세요</span>
+        </button>
+        <button id="btn-leave-room" class="w-full bg-slate-900 hover:bg-slate-800 text-slate-300 py-3 rounded-xl border border-slate-800 text-sm font-semibold transition">
+          퇴장하기
+        </button>
+      </div>
+    </div>
+
+    <!-- Game Play Screen -->
+    <div id="screen-game" class="hidden flex-col max-w-2xl mx-auto w-full space-y-3">
+      
+      <!-- Match Header Scoreboard -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl backdrop-blur space-y-3">
+        <div class="flex items-center justify-between">
+          <!-- Player 1 Score -->
+          <div class="flex items-center space-x-3 w-1/2">
+            <div class="w-10 h-10 bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center text-lg font-bold border border-emerald-500/30" id="p1-badge">
+              P1
+            </div>
+            <div>
+              <div class="text-xs text-slate-400 truncate max-w-[110px]" id="p1-name">플레이어 1</div>
+              <div class="text-2xl font-black text-emerald-400" id="p1-score">0</div>
+            </div>
+          </div>
+
+          <div class="text-center px-1 sm:px-2 flex-shrink-0 min-w-0">
+            <span class="inline-block whitespace-nowrap text-[10px] sm:text-xs bg-slate-800 text-amber-400 px-1.5 sm:px-2.5 py-1 rounded-full font-bold uppercase border border-slate-700" id="round-indicator">
+              1 / 5 슛
+            </span>
+          </div>
+
+          <!-- Player 2 Score -->
+          <div class="flex items-center justify-end space-x-3 w-1/2 text-right">
+            <div>
+              <div class="text-xs text-slate-400 truncate max-w-[110px]" id="p2-name">플레이어 2</div>
+              <div class="text-2xl font-black text-blue-400" id="p2-score">0</div>
+            </div>
+            <div class="w-10 h-10 bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center text-lg font-bold border border-blue-500/30" id="p2-badge">
+              P2
+            </div>
+          </div>
+        </div>
+
+        <!-- Penalty Kick Status Indicators (5 Dots each) -->
+        <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800 text-xs">
+          <div class="flex items-center space-x-1.5" id="p1-dots">
+            <!-- Dynamic Dots -->
+          </div>
+          <div class="flex items-center justify-end space-x-1.5" id="p2-dots">
+            <!-- Dynamic Dots -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Turn Banner Status -->
+      <div id="turn-banner" class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/40 rounded-2xl py-3 px-4 text-center font-bold text-sm shadow-lg flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span id="turn-role-badge" class="bg-emerald-500 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-black">공격</span>
+          <span id="turn-description-text" class="text-slate-100">슛 방향을 선택하세요!</span>
+        </div>
+        <button id="btn-quit-game" class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs px-2.5 py-1 rounded-lg border border-slate-700 transition">
+          몰수패/기권
+        </button>
+      </div>
+
+      <!-- Soccer Field Canvas Frame -->
+      <div class="relative bg-slate-900 rounded-3xl border-2 border-slate-800 overflow-hidden shadow-2xl aspect-[4/3] w-full flex items-center justify-center">
+        <canvas id="stadium-canvas" class="w-full h-full block"></canvas>
+
+        <!-- Dynamic Overlay Effect Text (GOAL / SAVED / MISS) -->
+        <div id="canvas-overlay-result" class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center bg-slate-950/40 opacity-0 transition-opacity duration-300">
+          <div id="overlay-text" class="text-5xl md:text-6xl font-black italic tracking-wider drop-shadow-[0_5px_15px_rgba(0,0,0,0.8)]">
+            GOAL!
+          </div>
+          <div id="overlay-subtext" class="text-sm font-semibold text-slate-200 mt-2 bg-slate-900/80 px-4 py-1 rounded-full border border-slate-700">
+            완벽한 구석 슈팅!
+          </div>
+        </div>
+
+        <!-- 경기장 안 공 바로 아래에 겹쳐 표시되는 반투명 방향 버튼 -->
+        <div id="controls-direction" class="absolute z-20 left-1/2 -translate-x-1/2 bottom-[3%] w-[78%] max-w-md">
+          <div id="controls-label" class="sr-only">방향 선택 (왼쪽 / 중앙 / 오른쪽)</div>
+          <div class="grid grid-cols-3 gap-2 sm:gap-3">
+            <button data-dir="left" class="btn-dir bg-slate-950/45 hover:bg-emerald-600/75 backdrop-blur-sm text-white border border-white/35 rounded-xl py-2 sm:py-3 font-black text-sm sm:text-base flex flex-row gap-1.5 items-center justify-center shadow-lg active:scale-95 transition group">
+              <i class="fa-solid fa-arrow-left-long text-base sm:text-lg group-hover:-translate-x-0.5 transition-transform"></i>
+              <span>왼쪽</span>
+            </button>
+            <button data-dir="center" class="btn-dir bg-slate-950/45 hover:bg-emerald-600/75 backdrop-blur-sm text-white border border-white/35 rounded-xl py-2 sm:py-3 font-black text-sm sm:text-base flex flex-row gap-1.5 items-center justify-center shadow-lg active:scale-95 transition group">
+              <i class="fa-solid fa-arrow-up-long text-base sm:text-lg group-hover:-translate-y-0.5 transition-transform"></i>
+              <span>가운데</span>
+            </button>
+            <button data-dir="right" class="btn-dir bg-slate-950/45 hover:bg-emerald-600/75 backdrop-blur-sm text-white border border-white/35 rounded-xl py-2 sm:py-3 font-black text-sm sm:text-base flex flex-row gap-1.5 items-center justify-center shadow-lg active:scale-95 transition group">
+              <i class="fa-solid fa-arrow-right-long text-base sm:text-lg group-hover:translate-x-0.5 transition-transform"></i>
+              <span>오른쪽</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Waiting Opponent Banner -->
+      <div id="waiting-opp-banner" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-4 text-center text-emerald-400 text-sm font-semibold animate-pulse">
+        <i class="fa-solid fa-spinner fa-spin mr-2"></i> 상대방의 방향 선택을 기다리는 중입니다...
+      </div>
+
+    </div>
+
+    <!-- Match Summary Screen -->
+    <div id="screen-summary" class="hidden bg-slate-900/90 border border-slate-800 rounded-3xl p-8 text-center max-w-xl mx-auto w-full shadow-2xl backdrop-blur">
+      <div id="summary-badge-icon" class="w-20 h-20 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl border border-amber-500/30 pulse-glow">
+        <i class="fa-solid fa-trophy"></i>
+      </div>
+      <h2 id="summary-title" class="text-3xl font-black mb-1">경기 결과</h2>
+      <p id="summary-subtitle" class="text-slate-400 text-sm mb-6">승부차기 대결이 완료되었습니다.</p>
+
+      <!-- Score Box -->
+      <div class="bg-slate-950 p-6 rounded-2xl border border-slate-800 mb-6 flex items-center justify-around">
+        <div class="text-center">
+          <span class="text-xs text-slate-400 block mb-1" id="summary-p1-name">선수 1</span>
+          <span class="text-4xl font-black text-emerald-400" id="summary-p1-score">0</span>
+        </div>
+        <div class="text-xl font-black text-slate-600 italic">VS</div>
+        <div class="text-center">
+          <span class="text-xs text-slate-400 block mb-1" id="summary-p2-name">선수 2</span>
+          <span class="text-4xl font-black text-blue-400" id="summary-p2-score">0</span>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <button id="btn-summary-rematch" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/30">
+          <i class="fa-solid fa-rotate-right"></i>
+          <span>한 판 더 하기</span>
+        </button>
+        <button id="btn-summary-home" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3.5 rounded-xl border border-slate-700 transition flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-house"></i>
+          <span>로비로 나가기</span>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Create Room Modal -->
+  <div id="modal-create-room" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg text-white"><i class="fa-solid fa-plus-circle text-emerald-400 mr-2"></i>승부차기 경기장 생성</h3>
+        <button class="btn-close-modal text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">경기장 방 제목</label>
+          <input type="text" id="input-room-title" class="bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 w-full focus:outline-none focus:border-emerald-500" placeholder="예: 챔피언스리그 결승 승부차기">
+        </div>
+      </div>
+
+      <div class="flex space-x-2 pt-2">
+        <button class="btn-close-modal w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-200 py-3 rounded-xl font-semibold text-sm">취소</button>
+        <button id="btn-submit-create-room" class="w-2/3 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/30">방 생성하고 입장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Join Code Modal -->
+  <div id="modal-join-room" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg text-white"><i class="fa-solid fa-key text-amber-400 mr-2"></i>초대 코드로 입장</h3>
+        <button class="btn-close-modal text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1">6자리 경기장 초대 코드</label>
+        <input type="text" id="input-join-code" uppercase maxlength="6" class="bg-slate-950 border border-slate-700 text-amber-400 tracking-widest text-center text-xl font-mono font-bold rounded-xl px-3 py-3 w-full focus:outline-none focus:border-amber-500" placeholder="예: KICK99">
+      </div>
+
+      <div class="flex space-x-2 pt-2">
+        <button class="btn-close-modal w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-200 py-3 rounded-xl font-semibold text-sm">취소</button>
+        <button id="btn-submit-join-room" class="w-2/3 bg-amber-500 hover:bg-amber-400 text-slate-950 py-3 rounded-xl font-black text-sm shadow-lg shadow-amber-500/20">입장하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Dialog Modal -->
+  <div id="modal-custom-dialog" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl text-center space-y-4">
+      <div id="dialog-icon-box" class="w-12 h-12 rounded-full flex items-center justify-center mx-auto text-xl bg-emerald-500/20 text-emerald-400">
+        <i class="fa-solid fa-circle-info"></i>
+      </div>
+      <h3 id="dialog-title" class="font-bold text-lg text-white">알림</h3>
+      <p id="dialog-message" class="text-sm text-slate-300 leading-relaxed"></p>
+      <div class="flex space-x-2 pt-2" id="dialog-actions">
+        <button id="btn-dialog-ok" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl font-bold text-sm">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="border-t border-slate-800 py-3 text-center text-xs text-slate-500">
+    Penalty Shootout 1v1 Multi Duel &bull; Powered by Firebase Firestore
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Firebase Global Setup
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'penalty-shootout-app';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+      apiKey: "AIzaSyCl8PfDXVj1qLVt1TcxqHt_qymY7X43zAI",
+      authDomain: "stock-game-768.firebaseapp.com",
+      projectId: "stock-game-768",
+      storageBucket: "stock-game-768.firebasestorage.app",
+      messagingSenderId: "89845431802",
+      appId: "1:89845431802:web:517763d2ba33bf4432b843"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Strict Path Helper
+    const roomsColRef = collection(db, 'artifacts', appId, 'public', 'data', 'penalty_rooms');
+    const roomDocRef = (roomId) => doc(db, 'artifacts', appId, 'public', 'data', 'penalty_rooms', roomId);
+
+    let currentUser = null;
+    let userId = null;
+    let myNickname = "선수_" + Math.floor(1000 + Math.random() * 9000);
+    let myWins = localStorage.getItem('penalty_wins') || 0;
+
+    // Game states
+    let gameMode = 'multi'; // 'single' | 'multi'
+    let currentRoomId = null;
+    let currentRoomData = null;
+    let roomUnsubscribe = null;
+    let publicRoomsUnsubscribe = null;
+    let myMultiRole = 'host'; // 'host' | 'guest'
+    let hasSelectedDirection = false;
+
+    // Single Player AI State
+    let singleState = {
+      round: 1, // 1..5, 6+
+      kickerRole: 'p1', // 'p1' (user) | 'p2' (AI)
+      p1Kicks: [],
+      p2Kicks: [],
+      p1Score: 0,
+      p2Score: 0,
+      turnPhase: 'p1_kick' // 'p1_kick', 'p2_kick'
+    };
+
+    // Sound Synthesizer via Web Audio API
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function playSound(type) {
+      try {
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const now = audioCtx.currentTime;
+        if (type === 'kick') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(120, now);
+          osc.frequency.exponentialRampToValueAtTime(30, now + 0.15);
+          gain.gain.setValueAtTime(1, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.15);
+        } else if (type === 'goal') {
+          // Whistle + cheer
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.setValueAtTime(1200, now + 0.1);
+          osc.frequency.setValueAtTime(800, now + 0.2);
+          gain.gain.setValueAtTime(0.5, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.4);
+        } else if (type === 'save') {
+          // Glove slap / thump
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(200, now);
+          osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+          gain.gain.setValueAtTime(0.7, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.2);
+        } else if (type === 'whistle') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(1500, now);
+          gain.gain.setValueAtTime(0.4, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.3);
+        }
+      } catch(e) {
+        console.log("Audio not supported or blocked");
+      }
+    }
+
+    function showCustomDialog(title, message, options = {}) {
+      const modal = document.getElementById('modal-custom-dialog');
+      document.getElementById('dialog-title').textContent = title;
+      document.getElementById('dialog-message').textContent = message;
+
+      const actionsBox = document.getElementById('dialog-actions');
+      actionsBox.innerHTML = '';
+
+      if (options.confirm) {
+        const btnCancel = document.createElement('button');
+        btnCancel.className = "w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl font-semibold text-sm";
+        btnCancel.textContent = options.cancelText || "취소";
+        btnCancel.onclick = () => { modal.classList.add('hidden'); };
+
+        const btnConfirm = document.createElement('button');
+        btnConfirm.className = "w-1/2 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl font-bold text-sm";
+        btnConfirm.textContent = options.confirmText || "확인";
+        btnConfirm.onclick = () => {
+          modal.classList.add('hidden');
+          if (options.onConfirm) options.onConfirm();
+        };
+
+        actionsBox.appendChild(btnCancel);
+        actionsBox.appendChild(btnConfirm);
+      } else {
+        const btnOk = document.createElement('button');
+        btnOk.className = "w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl font-bold text-sm";
+        btnOk.textContent = "확인";
+        btnOk.onclick = () => { modal.classList.add('hidden'); };
+        actionsBox.appendChild(btnOk);
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    async function initAuth() {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          const userCred = await signInWithCustomToken(auth, __initial_auth_token);
+          currentUser = userCred.user;
+        } else {
+          const userCred = await signInAnonymously(auth);
+          currentUser = userCred.user;
+        }
+        userId = currentUser.uid;
+        document.getElementById('firebase-status').innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>멀티 서버 접속됨`;
+        listenToPublicRooms();
+      } catch (err) {
+        console.error("Auth init error:", err);
+        document.getElementById('firebase-status').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400 mr-1"></i>오프라인 AI 모드 가능`;
+      }
+    }
+
+    document.getElementById('stat-wins').textContent = myWins;
+    const nicknameInput = document.getElementById('user-nickname-input');
+    nicknameInput.value = myNickname;
+    nicknameInput.addEventListener('change', (e) => {
+      const val = e.target.value.trim();
+      if (val) myNickname = val;
+    });
+
+    // Tab Switchers
+    const tabSingle = document.getElementById('tab-single');
+    const tabMulti = document.getElementById('tab-multi');
+    const panelSingle = document.getElementById('lobby-single-panel');
+    const panelMulti = document.getElementById('lobby-multi-panel');
+
+    tabSingle.addEventListener('click', () => {
+      tabSingle.className = "py-3 font-bold text-sm rounded-xl transition flex items-center justify-center space-x-2 bg-emerald-600 text-white shadow-md";
+      tabMulti.className = "py-3 font-bold text-sm rounded-xl transition flex items-center justify-center space-x-2 text-slate-400 hover:text-white";
+      panelSingle.classList.remove('hidden');
+      panelMulti.classList.add('hidden');
+    });
+
+    tabMulti.addEventListener('click', () => {
+      tabMulti.className = "py-3 font-bold text-sm rounded-xl transition flex items-center justify-center space-x-2 bg-emerald-600 text-white shadow-md";
+      tabSingle.className = "py-3 font-bold text-sm rounded-xl transition flex items-center justify-center space-x-2 text-slate-400 hover:text-white";
+      panelMulti.classList.remove('hidden');
+      panelSingle.classList.add('hidden');
+    });
+
+    function listenToPublicRooms() {
+      if (!userId) return;
+
+      publicRoomsUnsubscribe = onSnapshot(roomsColRef, (snapshot) => {
+        const roomListContainer = document.getElementById('room-list');
+        const rooms = [];
+
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data && data.status === 'waiting') {
+            rooms.push({ id: docSnap.id, ...data });
+          }
+        });
+
+        if (rooms.length === 0) {
+          roomListContainer.innerHTML = `
+            <div class="text-center py-8 bg-slate-950/40 rounded-2xl border border-slate-800 text-slate-500 text-xs">
+              현재 개설된 경기장이 없습니다.<br>[대결방 만들기]를 눌러 상대를 기다려보세요!
+            </div>
+          `;
+          return;
+        }
+
+        roomListContainer.innerHTML = '';
+        rooms.forEach(rm => {
+          const card = document.createElement('div');
+          card.className = "bg-slate-900 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between hover:border-emerald-500/50 transition";
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="font-bold text-sm text-white">${rm.title || '즐거운 승부차기'}</span>
+                <span class="text-[10px] bg-slate-800 text-emerald-300 px-2 py-0.5 rounded border border-slate-700">1v1</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">방장: <span class="text-slate-200 font-medium">${rm.host?.name || '익명'}</span> &bull; 코드: <span class="font-mono text-amber-400">${rm.code}</span></p>
+            </div>
+            <button class="btn-join-direct bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow" data-room-id="${rm.id}">
+              입장하기
+            </button>
+          `;
+          roomListContainer.appendChild(card);
+        });
+
+        document.querySelectorAll('.btn-join-direct').forEach(b => {
+          b.addEventListener('click', (e) => {
+            const rId = e.currentTarget.dataset.roomId;
+            joinRoomById(rId);
+          });
+        });
+      }, (err) => {
+        console.error("Rooms snapshot error:", err);
+      });
+    }
+
+    document.getElementById('btn-refresh-rooms').addEventListener('click', () => listenToPublicRooms());
+
+    const modalCreate = document.getElementById('modal-create-room');
+    const modalJoin = document.getElementById('modal-join-room');
+
+    document.getElementById('btn-open-create-modal').addEventListener('click', () => modalCreate.classList.remove('hidden'));
+    document.getElementById('btn-open-join-modal').addEventListener('click', () => modalJoin.classList.remove('hidden'));
+
+    document.querySelectorAll('.btn-close-modal').forEach(btn => {
+      btn.addEventListener('click', () => {
+        modalCreate.classList.add('hidden');
+        modalJoin.classList.add('hidden');
+      });
+    });
+
+    document.getElementById('btn-submit-create-room').addEventListener('click', async () => {
+      if (!userId) {
+        showCustomDialog("오류", "서버 초기화 중입니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+
+      const title = document.getElementById('input-room-title').value.trim() || `${myNickname}의 경기장`;
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const roomId = `penalty_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+
+      const newRoom = {
+        id: roomId,
+        code: code,
+        title: title,
+        status: 'waiting', // 'waiting' | 'playing' | 'finished'
+        host: {
+          uid: userId,
+          name: myNickname,
+          score: 0,
+          kicks: [] // boolean array (true: goal, false: miss/save)
+        },
+        guest: null,
+        currentTurn: {
+          round: 1, // 1..5, 6+ for sudden death
+          kickerRole: 'host', // 'host' or 'guest'
+          kickerChoice: null, // 'left' | 'center' | 'right'
+          keeperChoice: null, // 'left' | 'center' | 'right'
+          roundPhase: 'choosing', // 'choosing' | 'animating' | 'resolved'
+          lastResult: null // { isGoal, isSaved, isMiss, kickerChoice, keeperChoice }
+        },
+        winner: null, // 'host' | 'guest' | 'draw'
+        updatedAt: Date.now()
+      };
+
+      try {
+        await setDoc(roomDocRef(roomId), newRoom);
+        modalCreate.classList.add('hidden');
+        myMultiRole = 'host';
+        enterWaitingRoom(roomId);
+      } catch (e) {
+        console.error("Create room error:", e);
+        showCustomDialog("생성 실패", "경기장 생성에 실패하였습니다.");
+      }
+    });
+
+    document.getElementById('btn-submit-join-room').addEventListener('click', async () => {
+      const codeInput = document.getElementById('input-join-code').value.trim().toUpperCase();
+      if (!codeInput || codeInput.length !== 6) {
+        showCustomDialog("알림", "6자리 방 코드를 정확히 입력하세요.");
+        return;
+      }
+
+      try {
+        const querySnap = await getDocs(roomsColRef);
+        let foundRoom = null;
+        querySnap.forEach(d => {
+          const data = d.data();
+          if (data.code === codeInput && data.status === 'waiting') {
+            foundRoom = { id: d.id, ...data };
+          }
+        });
+
+        if (!foundRoom) {
+          showCustomDialog("알림", "존재하지 않거나 이미 진행 중인 경기장입니다.");
+          return;
+        }
+
+        await joinRoomById(foundRoom.id);
+        modalJoin.classList.add('hidden');
+      } catch (err) {
+        console.error("Join room error:", err);
+        showCustomDialog("입장 오류", "경기장 입장에 실패하였습니다.");
+      }
+    });
+
+    async function joinRoomById(roomId) {
+      if (!userId) return;
+
+      try {
+        const roomSnap = await getDoc(roomDocRef(roomId));
+        if (!roomSnap.exists()) {
+          showCustomDialog("알림", "경기장이 존재하지 않습니다.");
+          return;
+        }
+
+        const data = roomSnap.data();
+        if (data.host.uid === userId) {
+          myMultiRole = 'host';
+        } else {
+          if (data.guest && data.guest.uid !== userId) {
+            showCustomDialog("알림", "이미 선수가 차 있는 경기장입니다.");
+            return;
+          }
+          myMultiRole = 'guest';
+          await updateDoc(roomDocRef(roomId), {
+            guest: {
+              uid: userId,
+              name: myNickname,
+              score: 0,
+              kicks: []
+            },
+            updatedAt: Date.now()
+          });
+        }
+
+        enterWaitingRoom(roomId);
+      } catch (e) {
+        console.error("Join room direct error:", e);
+        showCustomDialog("입장 오류", "경기장 입장에 실패했습니다.");
+      }
+    }
+
+    function enterWaitingRoom(roomId) {
+      currentRoomId = roomId;
+      gameMode = 'multi';
+
+      document.getElementById('screen-lobby').classList.add('hidden');
+      document.getElementById('screen-room-waiting').classList.remove('hidden');
+
+      if (roomUnsubscribe) roomUnsubscribe();
+
+      roomUnsubscribe = onSnapshot(roomDocRef(roomId), (snapshot) => {
+        if (!snapshot.exists()) {
+          showCustomDialog("알림", "방장이 경기장을 삭제했거나 방이 종료되었습니다.");
+          leaveRoom();
+          return;
+        }
+
+        const room = snapshot.data();
+        currentRoomData = room;
+
+        document.getElementById('waiting-room-title').textContent = room.title;
+        document.getElementById('waiting-room-code').textContent = room.code;
+        document.getElementById('host-name-display').textContent = room.host?.name || '1번 키커';
+
+        const guestBox = document.getElementById('guest-box-container');
+        const guestName = document.getElementById('guest-name-display');
+        const guestStatus = document.getElementById('guest-status-display');
+        const guestAvatar = document.getElementById('guest-avatar');
+
+        if (room.guest) {
+          guestBox.className = "bg-slate-950 p-5 rounded-2xl border-2 border-blue-500/50 flex flex-col items-center justify-center space-y-2 relative";
+          guestAvatar.className = "w-14 h-14 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center text-2xl border border-blue-500/40";
+          guestAvatar.innerHTML = `<i class="fa-solid fa-shirt"></i>`;
+          guestName.textContent = room.guest.name;
+          guestStatus.textContent = "출전 준비 완료";
+          guestStatus.className = "text-xs text-emerald-400 font-medium";
+        } else {
+          guestBox.className = "bg-slate-950 p-5 rounded-2xl border-2 border-dashed border-slate-800 flex flex-col items-center justify-center space-y-2 relative";
+          guestAvatar.className = "w-14 h-14 bg-slate-900 text-slate-500 rounded-full flex items-center justify-center text-2xl border border-slate-800";
+          guestAvatar.innerHTML = `<i class="fa-solid fa-user-plus"></i>`;
+          guestName.textContent = "대기 중...";
+          guestStatus.textContent = "상대 선수를 기다립니다";
+          guestStatus.className = "text-xs text-slate-500";
+        }
+
+        const btnStart = document.getElementById('btn-start-multi-game');
+        const btnStartText = document.getElementById('btn-start-multi-text');
+
+        if (myMultiRole === 'host') {
+          if (room.guest) {
+            btnStart.disabled = false;
+            btnStart.className = "w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-500/30 transition flex items-center justify-center space-x-2 cursor-pointer pulse-glow";
+            btnStartText.textContent = "경기 개시 (휘슬 울리기)";
+          } else {
+            btnStart.disabled = true;
+            btnStart.className = "w-full bg-slate-800 text-slate-500 font-bold py-4 rounded-2xl transition flex items-center justify-center space-x-2 cursor-not-allowed";
+            btnStartText.textContent = "상대방 입장을 기다려주세요";
+          }
+        } else {
+          btnStart.disabled = true;
+          btnStart.className = "w-full bg-slate-800 text-slate-400 font-bold py-4 rounded-2xl transition flex items-center justify-center space-x-2 opacity-90 cursor-default";
+          btnStartText.textContent = "방장이 경기를 개시하길 기다리는 중...";
+        }
+
+        if (room.status === 'playing') {
+          syncMultiGameView();
+        } else if (room.status === 'finished') {
+          renderMultiSummaryView();
+        }
+      });
+    }
+
+    document.getElementById('btn-copy-code').addEventListener('click', () => {
+      const code = document.getElementById('waiting-room-code').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        showCustomDialog("복사 성공", `초대 코드 [ ${code} ]가 클립보드에 복사되었습니다!`);
+      }).catch(() => {
+        showCustomDialog("코드", `초대 코드: ${code}`);
+      });
+    });
+
+    document.getElementById('btn-leave-room').addEventListener('click', () => {
+      showCustomDialog("경기장 퇴장", "정말 대기실을 나가시겠습니까?", {
+        confirm: true,
+        onConfirm: () => { leaveRoom(); }
+      });
+    });
+
+    async function leaveRoom() {
+      if (roomUnsubscribe) {
+        roomUnsubscribe();
+        roomUnsubscribe = null;
+      }
+
+      if (currentRoomId && userId && currentRoomData) {
+        try {
+          if (myMultiRole === 'host') {
+            await deleteDoc(roomDocRef(currentRoomId));
+          } else {
+            await updateDoc(roomDocRef(currentRoomId), { guest: null });
+          }
+        } catch(e) {
+          console.warn(e);
+        }
+      }
+
+      currentRoomId = null;
+      currentRoomData = null;
+
+      document.getElementById('screen-room-waiting').classList.add('hidden');
+      document.getElementById('screen-game').classList.add('hidden');
+      document.getElementById('screen-summary').classList.add('hidden');
+      document.getElementById('screen-lobby').classList.remove('hidden');
+    }
+
+    // Host Starts Game
+    document.getElementById('btn-start-multi-game').addEventListener('click', async () => {
+      if (myMultiRole !== 'host' || !currentRoomId) return;
+
+      playSound('whistle');
+      try {
+        await updateDoc(roomDocRef(currentRoomId), {
+          status: 'playing',
+          'host.score': 0,
+          'host.kicks': [],
+          'guest.score': 0,
+          'guest.kicks': [],
+          currentTurn: {
+            round: 1,
+            kickerRole: 'host',
+            kickerChoice: null,
+            keeperChoice: null,
+            roundPhase: 'choosing',
+            lastResult: null
+          },
+          winner: null,
+          updatedAt: Date.now()
+        });
+      } catch (err) {
+        console.error("Start multi game error:", err);
+      }
+    });
+
+    const canvas = document.getElementById('stadium-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let animId = null;
+    let ballState = { 
+      x: 0.5, y: 0.82, z: 1.0, 
+      targetX: 0.5, targetY: 0.35, 
+      rotation: 0,
+      impactX: 0.5, impactY: 0.35,
+      bounceVx: 0, bounceVy: 0
+    };
+    let keeperState = { 
+      x: 0.5, y: 0.38, 
+      targetX: 0.5, targetY: 0.38, 
+      diveDir: 'center', // 'left' | 'center' | 'right'
+      bodyAngle: 0,
+      armExtend: 0
+    };
+
+    function resizeCanvas() {
+      const container = canvas.parentElement;
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      drawStadium();
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // ===== 리얼 렌더링 교체 코드 =====
+    // 기존 drawStadium / drawGoalkeeper / drawBall / drawPentagon 4개 함수를 지우고
+    // 같은 <script type="module"> 안에 이 파일 내용을 통째로 붙여넣으세요.
+
+    const _L = { w: 0, h: 0, back: null, front: null };
+    const _rnd = i => { const s = Math.sin(i * 127.1) * 43758.5453; return s - Math.floor(s); };
+
+    const _mx = x => 0.5 + (x - 0.5) * 1.3;   // 좌우 확대
+    const _my = y => 0.82 + (y - 0.82) * 0.83; // 낮아진 골대에 맞춤
+
+    function _geom(w, h) {
+      const goalW = w * 0.72, goalH = h * 0.26;
+      return { goalW, goalH, goalX: (w - goalW) / 2, goalY: h * 0.26, dx: w * 0.07, dy: h * 0.05 };
+    }
+
+    function _layer(w, h, fn) {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      fn(c.getContext('2d'), w, h);
+      return c;
+    }
+
+    function _buildLayers(w, h) {
+      _L.w = w; _L.h = h;
+      _L.back = _layer(w, h, _paintBack);
+      _L.front = _layer(w, h, _paintFront);
+    }
+
+    function _paintBack(c, w, h) {
+      // 관중석
+      const sky = c.createLinearGradient(0, 0, 0, h * 0.17);
+      sky.addColorStop(0, '#02040a'); sky.addColorStop(1, '#0f1b36');
+      c.fillStyle = sky; c.fillRect(0, 0, w, h * 0.17);
+      const colors = ['#e11d48', '#2563eb', '#f8fafc', '#facc15', '#16a34a', '#94a3b8'];
+      for (let r = 0; r < 7; r++) {
+        const y = h * 0.012 + r * h * 0.017;
+        for (let x = 0; x < w; x += 6) {
+          const i = r * 1000 + x;
+          c.globalAlpha = 0.35 + _rnd(i) * 0.45;
+          c.fillStyle = colors[Math.floor(_rnd(i + 7) * colors.length)];
+          c.beginPath(); c.arc(x + _rnd(i + 3) * 3, y + _rnd(i + 5) * 3, 2.2, 0, 6.283); c.fill();
+        }
+      }
+      c.globalAlpha = 1;
+      // 조명 탑 글로우
+      [0.08, 0.92].forEach(fx => {
+        const g = c.createRadialGradient(w * fx, 0, 4, w * fx, 0, w * 0.42);
+        g.addColorStop(0, 'rgba(255,255,240,0.85)');
+        g.addColorStop(0.25, 'rgba(186,230,253,0.25)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        c.fillStyle = g; c.fillRect(0, 0, w, h * 0.4);
+      });
+      // LED 광고판
+      const ay = h * 0.125, ah = h * 0.05, seg = w / 6;
+      const ads = ['PENALTY', 'KICK', 'GOAL', 'CHAMPION', 'SHOOT', 'FINAL'];
+      const adc = ['#1d4ed8', '#be123c', '#047857', '#b45309', '#6d28d9', '#0e7490'];
+      ads.forEach((t, i) => {
+        const g = c.createLinearGradient(0, ay, 0, ay + ah);
+        g.addColorStop(0, adc[i]); g.addColorStop(1, '#0b1020');
+        c.fillStyle = g; c.fillRect(i * seg, ay, seg - 2, ah);
+        c.fillStyle = 'rgba(255,255,255,0.9)';
+        c.font = `900 ${Math.round(ah * 0.5)}px sans-serif`;
+        c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText(t, i * seg + seg / 2, ay + ah / 2);
+      });
+      // 잔디
+      const y0 = h * 0.17;
+      const pg = c.createLinearGradient(0, y0, 0, h);
+      pg.addColorStop(0, '#03452c'); pg.addColorStop(0.4, '#06693f'); pg.addColorStop(1, '#0f9a5a');
+      c.fillStyle = pg; c.fillRect(0, y0, w, h - y0);
+      const n = 14;
+      for (let i = 0; i < n; i++) {
+        const a = y0 + (h - y0) * Math.pow(i / n, 1.5);
+        const b = y0 + (h - y0) * Math.pow((i + 1) / n, 1.5);
+        c.fillStyle = i % 2 ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.07)';
+        c.fillRect(0, a, w, b - a);
+      }
+      for (let i = 0; i < 700; i++) {
+        const t = _rnd(i * 3), y = y0 + (h - y0) * t;
+        c.fillStyle = _rnd(i) > 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.07)';
+        c.fillRect(_rnd(i + 11) * w, y, 1.2, 2 + t * 5);
+      }
+      // 라인
+      c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = Math.max(2, w * 0.004);
+      c.shadowColor = 'rgba(255,255,255,0.35)'; c.shadowBlur = 4;
+      const trap = (tw, bw, ty, by) => {
+        c.beginPath();
+        c.moveTo((w - tw) / 2, ty); c.lineTo((w + tw) / 2, ty);
+        c.lineTo((w + bw) / 2, by); c.lineTo((w - bw) / 2, by);
+        c.closePath(); c.stroke();
+      };
+      trap(w * 0.94, w * 1.3, h * 0.52, h * 0.97);
+      trap(w * 0.8, w * 0.94, h * 0.52, h * 0.66);
+      c.beginPath(); c.moveTo(0, h * 0.52); c.lineTo(w, h * 0.52); c.stroke();
+      c.shadowBlur = 0;
+      c.fillStyle = '#fff'; c.beginPath(); c.ellipse(w / 2, h * 0.82, 6, 3.5, 0, 0, 6.283); c.fill();
+
+      // 골대 그물 (바닥/뒷면/양옆/천장 5면 원근 격자 + 후방 프레임)
+      const g = _geom(w, h);
+      const FX0 = g.goalX, FX1 = g.goalX + g.goalW, FT = g.goalY, FB = g.goalY + g.goalH;
+      const BX0 = FX0 + g.dx, BX1 = FX1 - g.dx, BT = FT - g.dy, BB = FB - g.dy;
+      const lerp2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+      const plane = (P00, P10, P01, P11, nu, nv, fill, alpha) => {
+        c.fillStyle = fill;
+        c.beginPath(); c.moveTo(P00[0], P00[1]); c.lineTo(P10[0], P10[1]);
+        c.lineTo(P11[0], P11[1]); c.lineTo(P01[0], P01[1]); c.closePath(); c.fill();
+        c.strokeStyle = 'rgba(255,255,255,' + alpha + ')'; c.lineWidth = 0.9;
+        c.beginPath();
+        for (let i = 0; i <= nu; i++) { const a = lerp2(P00, P10, i / nu), b = lerp2(P01, P11, i / nu); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); }
+        for (let j = 0; j <= nv; j++) { const a = lerp2(P00, P01, j / nv), b = lerp2(P10, P11, j / nv); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); }
+        c.stroke();
+      };
+      const FTL = [FX0, FT], FTR = [FX1, FT], FBL = [FX0, FB], FBR = [FX1, FB];
+      const BTL = [BX0, BT], BTR = [BX1, BT], BBL = [BX0, BB], BBR = [BX1, BB];
+      plane(FBL, FBR, BBL, BBR, 28, 8, 'rgba(4,38,24,0.55)', 0.22);      // 바닥
+      plane(BTL, BTR, BBL, BBR, 28, 15, 'rgba(6,10,22,0.8)', 0.3);       // 뒷면
+      plane(FTL, BTL, FBL, BBL, 8, 15, 'rgba(6,10,22,0.55)', 0.38);      // 왼쪽 옆면
+      plane(FTR, BTR, FBR, BBR, 8, 15, 'rgba(6,10,22,0.55)', 0.38);      // 오른쪽 옆면
+      plane(FTL, FTR, BTL, BTR, 28, 8, 'rgba(25,35,60,0.35)', 0.42);     // 천장
+      // 깊이 안개: 뒤로 갈수록 어둡게
+      const haze = c.createLinearGradient(0, FT, 0, BT);
+      haze.addColorStop(0, 'rgba(0,0,0,0)'); haze.addColorStop(1, 'rgba(0,0,0,0.35)');
+      c.fillStyle = haze; c.fillRect(BX0, BT, BX1 - BX0, (BB - BT));
+      // 후방 프레임 파이프
+      c.strokeStyle = 'rgba(203,213,225,0.9)'; c.lineWidth = 3; c.lineCap = 'round';
+      c.beginPath();
+      [[FX0, FT, BX0, BT], [FX1, FT, BX1, BT], [FX0, FB, BX0, BB], [FX1, FB, BX1, BB],
+       [BX0, BT, BX1, BT], [BX0, BT, BX0, BB], [BX1, BT, BX1, BB]].forEach(q => { c.moveTo(q[0], q[1]); c.lineTo(q[2], q[3]); });
+      c.stroke();
+      // 골대 아래 바닥 그림자
+      c.fillStyle = 'rgba(0,0,0,0.3)';
+      c.beginPath(); c.ellipse(w / 2, g.goalY + g.goalH + 3, g.goalW * 0.52, h * 0.012, 0, 0, 6.283); c.fill();
+    }
+
+    function _paintFront(c, w, h) {
+      const g = _geom(w, h), t = Math.max(8, w * 0.013);
+      // 원통형 골포스트
+      const post = (x, y, pw, ph, horiz) => {
+        const gr = horiz ? c.createLinearGradient(0, y, 0, y + ph) : c.createLinearGradient(x, 0, x + pw, 0);
+        gr.addColorStop(0, '#9aa7b8'); gr.addColorStop(0.3, '#ffffff'); gr.addColorStop(0.6, '#e2e8f0'); gr.addColorStop(1, '#475569');
+        c.fillStyle = gr; c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = 6;
+        c.beginPath(); c.roundRect(x, y, pw, ph, t / 2); c.fill(); c.shadowBlur = 0;
+      };
+      post(g.goalX - t / 2, g.goalY - t / 2, t, g.goalH + t / 2, false);
+      post(g.goalX + g.goalW - t / 2, g.goalY - t / 2, t, g.goalH + t / 2, false);
+      post(g.goalX - t / 2, g.goalY - t / 2, g.goalW + t, t, true);
+      // 비네팅
+      const v = c.createRadialGradient(w / 2, h / 2, h * 0.35, w / 2, h / 2, h * 0.95);
+      v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
+      c.fillStyle = v; c.fillRect(0, 0, w, h);
+    }
+
+    function drawStadium() {
+      const w = canvas.width, h = canvas.height;
+      if (!w || !h) return;
+      if (_L.w !== w || _L.h !== h || !_L.back) _buildLayers(w, h);
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(_L.back, 0, 0);
+      drawGoalkeeper(w, h);
+      drawBall(w, h);
+      ctx.drawImage(_L.front, 0, 0);
+    }
+
+    function _limb(x1, y1, x2, y2, wd, col) {
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = col; ctx.lineWidth = wd;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+
+    function _glove(x, y, ang) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+      ctx.fillStyle = '#f97316'; ctx.fillRect(-5, 4, 10, 5); // 커프
+      const gr = ctx.createRadialGradient(-2, -2, 1, 0, 0, 11);
+      gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#cbd5e1');
+      ctx.fillStyle = gr; ctx.strokeStyle = '#475569'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(-7, -9, 14, 15, 5); ctx.fill(); ctx.stroke();
+      for (let i = -2; i <= 2; i++) { // 손가락
+        ctx.beginPath(); ctx.moveTo(i * 2.6, -9); ctx.lineTo(i * 2.6, -3); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function getKeeperKit() {
+      // 싱글: 플레이어는 파랑, AI는 빨강 / 멀티: 방장 파랑, 참가자 빨강
+      let keeperRole = 'guest';
+      if (gameMode === 'single') {
+        keeperRole = singleState.kickerRole === 'p1' ? 'p2' : 'p1';
+      } else if (currentRoomData && currentRoomData.currentTurn) {
+        keeperRole = currentRoomData.currentTurn.kickerRole === 'host' ? 'guest' : 'host';
+      }
+
+      if (keeperRole === 'p1' || keeperRole === 'host') {
+        return { dark: '#1d4ed8', main: '#3b82f6', light: '#93c5fd', trim: '#dbeafe' };
+      }
+      return { dark: '#b91c1c', main: '#ef4444', light: '#fca5a5', trim: '#fee2e2' };
+    }
+
+    function drawGoalkeeper(w, h) {
+      const kit = getKeeperKit();
+      const s = Math.max(0.6, w / 700);
+      ctx.save();
+      const idle = Math.abs(keeperState.x - 0.5) < 0.001 && Math.abs(keeperState.y - 0.38) < 0.001;
+      const ang = idle ? 0 : keeperState.bodyAngle;
+      ctx.translate(_mx(keeperState.x) * w, _my(keeperState.y) * h);
+      ctx.rotate(ang);
+      ctx.scale(s, s);
+
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.beginPath(); ctx.ellipse(0, 38, 30, 8, 0, 0, 6.283); ctx.fill();
+
+      [-8, 8].forEach(x => {
+        _limb(x, 10, x, 28, 11, '#0f172a');
+        _limb(x, 24, x, 33, 9, kit.main);
+        ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.roundRect(x - 7, 32, 14, 7, 3); ctx.fill();
+        ctx.fillStyle = '#f97316'; ctx.fillRect(x - 7, 36, 14, 2);
+      });
+      ctx.fillStyle = kit.dark; ctx.beginPath(); ctx.roundRect(-16, 0, 32, 16, 5); ctx.fill();
+
+      const jg = ctx.createLinearGradient(-20, 0, 20, 0);
+      jg.addColorStop(0, kit.dark); jg.addColorStop(0.35, kit.light); jg.addColorStop(0.7, kit.main); jg.addColorStop(1, kit.dark);
+      ctx.fillStyle = jg; ctx.beginPath(); ctx.roundRect(-20, -26, 40, 33, 9); ctx.fill();
+      ctx.fillStyle = kit.trim; ctx.fillRect(-20, -9, 40, 4);
+      ctx.fillStyle = '#0f172a'; ctx.font = '900 13px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('1', 0, -13);
+
+      // 팔: 대기 자세(옆으로 벌림) -> 다이빙 시 양팔 만세(머리 위로 쭉)
+      const k = Math.min(1, Math.abs(ang) / 0.8);
+      const lp = (a, b) => a + (b - a) * k;
+      const Le = [lp(-30, -24), lp(-30, -46)], Lh = [lp(-38, -17), lp(-48, -72)];
+      const Re = [-Le[0], Le[1]], Rh = [-Lh[0], Lh[1]];
+      _limb(-17, -20, Le[0], Le[1], 10, kit.dark); _limb(Le[0], Le[1], Lh[0], Lh[1], 9, kit.main);
+      _limb(17, -20, Re[0], Re[1], 10, kit.dark);  _limb(Re[0], Re[1], Rh[0], Rh[1], 9, kit.main);
+      _glove(Lh[0], Lh[1], -0.35 * (1 - k));
+      _glove(Rh[0], Rh[1], 0.35 * (1 - k));
+
+      ctx.fillStyle = '#d4956b'; ctx.fillRect(-4, -32, 8, 8);
+      const sk = ctx.createRadialGradient(-3, -40, 2, 0, -37, 13);
+      sk.addColorStop(0, '#f6c9a0'); sk.addColorStop(1, '#c98a5e');
+      ctx.fillStyle = sk; ctx.beginPath(); ctx.arc(0, -37, 11, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#1c1917';
+      ctx.beginPath(); ctx.arc(0, -40, 11.5, Math.PI * 1.02, Math.PI * 1.98); ctx.fill();
+      ctx.fillRect(-11, -42, 3, 6); ctx.fillRect(8, -42, 3, 6);
+      ctx.fillStyle = '#111';
+      ctx.beginPath(); ctx.arc(-4, -37, 1.3, 0, 6.283); ctx.arc(4, -37, 1.3, 0, 6.283); ctx.fill();
+      ctx.restore();
+    }
+
+    // 깎은 정이십면체: 오각형 12개의 중심 + 이웃 5개(각도순 정렬)
+    const _IV = (() => {
+      const P = (1 + Math.sqrt(5)) / 2, n = Math.hypot(1, P), raw = [];
+      [-1, 1].forEach(a => [-1, 1].forEach(b => raw.push([0, a, b * P], [a, b * P, 0], [b * P, 0, a])));
+      const v = raw.map(p => p.map(x => x / n));
+      const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      const nb = v.map((p, i) => {
+        const a = Math.abs(p[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0], d = dot(a, p);
+        let t1 = [a[0] - p[0] * d, a[1] - p[1] * d, a[2] - p[2] * d];
+        const l = Math.hypot(t1[0], t1[1], t1[2]); t1 = t1.map(x => x / l);
+        const t2 = [p[1] * t1[2] - p[2] * t1[1], p[2] * t1[0] - p[0] * t1[2], p[0] * t1[1] - p[1] * t1[0]];
+        return v.map((q, j) => j).filter(j => j !== i && Math.abs(dot(v[j], p) - 0.4472) < 0.02)
+          .sort((x, y) => Math.atan2(dot(v[x], t2), dot(v[x], t1)) - Math.atan2(dot(v[y], t2), dot(v[y], t1)));
+      });
+      return { v, nb };
+    })();
+    const _nrm = p => { const l = Math.hypot(p[0], p[1], p[2]); return [p[0] / l, p[1] / l, p[2] / l]; };
+    const _mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+    function drawBall(w, h) {
+      const bx = _mx(ballState.x) * w, by = _my(ballState.y) * h;
+      const r = Math.max(6, 15 * ballState.z * Math.max(0.8, w / 700));
+
+      ctx.save();
+      ctx.translate(bx, by);
+      const sa = Math.max(0.1, 0.5 * ballState.z);
+      ctx.fillStyle = 'rgba(0,0,0,' + sa + ')';
+      ctx.beginPath(); ctx.ellipse(0, r * 1.1 + (1 - ballState.z) * 22, r * 1.05, r * 0.3, 0, 0, 6.283); ctx.fill();
+
+      // 3D 회전 (Rodrigues): 공이 구르면서 오각형이 실제로 이동/변형됨
+      const ang = ballState.rotation + 1.1, cs = Math.cos(ang), sn = Math.sin(ang);
+      const ax = _nrm([0.88, 0.33, 0.33]);
+      const rv = _IV.v.map(p => {
+        const kd = ax[0] * p[0] + ax[1] * p[1] + ax[2] * p[2];
+        const cx = [ax[1] * p[2] - ax[2] * p[1], ax[2] * p[0] - ax[0] * p[2], ax[0] * p[1] - ax[1] * p[0]];
+        return [0, 1, 2].map(i => p[i] * cs + cx[i] * sn + ax[i] * kd * (1 - cs));
+      });
+
+      ctx.save();
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.283); ctx.clip();
+      ctx.fillStyle = '#f8fafc'; ctx.fillRect(-r, -r, r * 2, r * 2);
+
+      // 육각형 패널 사이 솔기
+      ctx.strokeStyle = 'rgba(100,116,139,0.85)'; ctx.lineWidth = Math.max(0.8, r * 0.05); ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < 12; i++) _IV.nb[i].forEach(j => {
+        if (j < i) return;
+        let started = false;
+        for (let t = 1 / 3; t <= 2 / 3 + 0.001; t += 1 / 18) {
+          const p = _nrm(_mix(rv[i], rv[j], t));
+          if (p[2] < -0.02) { started = false; continue; }
+          started ? ctx.lineTo(p[0] * r, p[1] * r) : ctx.moveTo(p[0] * r, p[1] * r);
+          started = true;
+        }
+      });
+      ctx.stroke();
+
+      // 검은 오각형 패널 (구면 투영이라 가장자리일수록 납작하게 보임)
+      ctx.fillStyle = '#111827';
+      for (let i = 0; i < 12; i++) {
+        if (rv[i][2] < -0.12) continue;
+        ctx.beginPath();
+        _IV.nb[i].forEach((j, idx) => {
+          const p = _nrm(_mix(rv[i], rv[j], 1 / 3));
+          idx ? ctx.lineTo(p[0] * r, p[1] * r) : ctx.moveTo(p[0] * r, p[1] * r);
+        });
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+
+      // 구면 음영 + 광택
+      const sh = ctx.createRadialGradient(-r * 0.4, -r * 0.4, r * 0.1, 0, 0, r * 1.05);
+      sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.6, 'rgba(100,116,139,0.18)'); sh.addColorStop(1, 'rgba(15,23,42,0.6)');
+      ctx.fillStyle = sh; ctx.fillRect(-r, -r, r * 2, r * 2);
+      const gl = ctx.createRadialGradient(-r * 0.4, -r * 0.45, 0, -r * 0.4, -r * 0.45, r * 0.5);
+      gl.addColorStop(0, 'rgba(255,255,255,0.85)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gl; ctx.fillRect(-r, -r, r * 2, r * 2);
+      ctx.restore();
+
+      ctx.strokeStyle = 'rgba(30,41,59,0.8)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.283); ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPentagon(x, y, r) {
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const a = (i * 72 - 90) * Math.PI / 180;
+        const px = x + r * Math.cos(a), py = y + r * Math.sin(a);
+        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Animation Loop Trigger
+    function triggerShotAnimation(kickerChoice, keeperChoice, result, onComplete) {
+      // Set targets
+      const targetXMap = { left: 0.28, center: 0.50, right: 0.72 };
+      const keeperTargetXMap = { left: 0.30, center: 0.50, right: 0.70 };
+
+      ballState.x = 0.5;
+      ballState.y = 0.82;
+      ballState.z = 1.0;
+      ballState.rotation = 0;
+      ballState.targetX = targetXMap[kickerChoice] || 0.5;
+      ballState.targetY = result.isMiss ? 0.06 : 0.23;
+
+      if (result.isMiss) {
+        ballState.targetX += (kickerChoice === 'left' ? -0.12 : kickerChoice === 'right' ? 0.12 : 0);
+      }
+
+      keeperState.x = 0.5;
+      keeperState.y = 0.38;
+      keeperState.targetX = keeperTargetXMap[keeperChoice] || 0.5;
+      keeperState.diveDir = keeperChoice;
+      keeperState.bodyAngle = 0;
+
+      let startTime = null;
+      const duration = result.isSaved ? 1200 : 800; // Longer duration for rebound physics
+      let hasImpactedKeeper = false;
+
+      playSound('kick');
+
+      function animateStep(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(1, elapsed / duration);
+
+        ballState.rotation += 0.25;
+
+        // Goalkeeper Body Diving Rotation Angle
+        if (keeperChoice === 'left') {
+          keeperState.bodyAngle = -Math.sin(Math.min(progress * 1.8, 1) * Math.PI / 2) * 1.1; // Leans left up to ~65 degrees
+        } else if (keeperChoice === 'right') {
+          keeperState.bodyAngle = Math.sin(Math.min(progress * 1.8, 1) * Math.PI / 2) * 1.1; // Leans right up to ~65 degrees
+        } else {
+          keeperState.bodyAngle = 0;
+        }
+
+        if (result.isSaved) {
+          // --- REALISTIC SAVED BALL PHYSICAL COLLISION & REBOUND BOUNCE ---
+          const impactProgress = 0.52; // Moment ball hits keeper gloves
+
+          if (progress <= impactProgress) {
+            // Phase 1: Ball flies towards keeper gloves
+            const tNorm = progress / impactProgress;
+            const easeOut = 1 - Math.pow(1 - tNorm, 2);
+
+            ballState.x = 0.5 + (keeperState.targetX - 0.5) * easeOut;
+            ballState.y = 0.82 + (0.33 - 0.82) * easeOut;
+            ballState.z = 1.0 - 0.48 * easeOut;
+
+            keeperState.x = 0.5 + (keeperState.targetX - 0.5) * easeOut;
+            keeperState.y = 0.38 - Math.sin(tNorm * Math.PI) * 0.05; // Leaps slightly up
+          } else {
+            // Phase 2: Ball impacts keeper gloves and BOUNCES OFF onto pitch!
+            if (!hasImpactedKeeper) {
+              hasImpactedKeeper = true;
+              playSound('save');
+              ballState.impactX = ballState.x;
+              ballState.impactY = ballState.y;
+
+              // Calculate bounce rebound direction back out
+              const bounceAngle = (keeperChoice === 'left' ? 0.3 : keeperChoice === 'right' ? -0.3 : (Math.random() - 0.5) * 0.4);
+              ballState.bounceVx = bounceAngle;
+            }
+
+            const rb = (progress - impactProgress) / (1 - impactProgress); // Rebound progress [0..1]
+            const easeBounce = rb * rb; // Gravity drop acceleration
+
+            // Ball rebounds forward and down with parabolic arc & scaling
+            ballState.x = ballState.impactX + ballState.bounceVx * rb * 0.4;
+            ballState.y = ballState.impactY + 0.35 * rb + 0.12 * easeBounce; // Drops down field
+            ballState.z = 0.52 + 0.35 * rb; // Gets closer/larger as it bounces forward
+
+            keeperState.x = keeperState.targetX;
+          }
+        } else {
+          // Normal Shot (Goal or Miss)
+          const ease = 1 - Math.pow(1 - progress, 3);
+
+          ballState.x = 0.5 + (ballState.targetX - 0.5) * ease;
+          ballState.y = 0.82 + (ballState.targetY - 0.82) * ease;
+          ballState.z = 1.0 - 0.55 * ease;
+
+          keeperState.x = 0.5 + (keeperState.targetX - 0.5) * Math.min(1, ease * 1.2);
+        }
+
+        drawStadium();
+
+        if (progress < 1) {
+          requestAnimationFrame(animateStep);
+        } else {
+          if (result.isGoal) playSound('goal');
+
+          showResultOverlay(result);
+          setTimeout(() => {
+            hideResultOverlay();
+            if (onComplete) onComplete();
+          }, 1800);
+        }
+      }
+
+      requestAnimationFrame(animateStep);
+    }
+
+    function showResultOverlay(result) {
+      const overlay = document.getElementById('canvas-overlay-result');
+      const text = document.getElementById('overlay-text');
+      const subtext = document.getElementById('overlay-subtext');
+
+      if (result.isGoal) {
+        text.textContent = "GOAL!";
+        text.className = "text-5xl md:text-6xl font-black italic tracking-wider text-yellow-400 drop-shadow-[0_5px_15px_rgba(250,204,21,0.85)]";
+        subtext.textContent = "골망을 가르는 깔끔한 득점!";
+      } else if (result.isSaved) {
+        text.textContent = "SAVED!";
+        text.className = "text-5xl md:text-6xl font-black italic tracking-wider text-amber-400 drop-shadow-[0_5px_15px_rgba(245,158,11,0.8)]";
+        subtext.textContent = "골키퍼가 슈팅 방향을 간파했습니다!";
+      } else {
+        text.textContent = "MISS!";
+        text.className = "text-5xl md:text-6xl font-black italic tracking-wider text-rose-500 drop-shadow-[0_5px_15px_rgba(244,63,94,0.8)]";
+        subtext.textContent = "공이 골대를 벗어났습니다!";
+      }
+
+      overlay.classList.remove('opacity-0');
+      overlay.classList.add('opacity-100');
+    }
+
+    function hideResultOverlay() {
+      const overlay = document.getElementById('canvas-overlay-result');
+      overlay.classList.remove('opacity-100');
+      overlay.classList.add('opacity-0');
+      
+      // Reset ball position
+      ballState.x = 0.5; ballState.y = 0.82; ballState.z = 1.0;
+      keeperState.x = 0.5; keeperState.y = 0.38;
+      drawStadium();
+    }
+
+    document.getElementById('btn-start-single').addEventListener('click', () => {
+      gameMode = 'single';
+      singleState = {
+        round: 1,
+        kickerRole: 'p1',
+        p1Kicks: [],
+        p2Kicks: [],
+        p1Score: 0,
+        p2Score: 0,
+        turnPhase: 'p1_kick'
+      };
+
+      document.getElementById('screen-lobby').classList.add('hidden');
+      document.getElementById('screen-summary').classList.add('hidden');
+      document.getElementById('screen-game').classList.remove('hidden');
+      document.getElementById('screen-game').classList.add('flex');
+
+      document.getElementById('p1-name').textContent = `${myNickname} (나)`;
+      document.getElementById('p2-name').textContent = "AI 키퍼";
+
+      resizeCanvas();
+      renderSingleTurn();
+    });
+
+    function renderSingleTurn() {
+      hasSelectedDirection = false;
+      updateScoreboardUI(
+        singleState.p1Score,
+        singleState.p2Score,
+        singleState.p1Kicks,
+        singleState.p2Kicks,
+        singleState.round
+      );
+
+      const isUserKicker = (singleState.kickerRole === 'p1');
+      const badge = document.getElementById('turn-role-badge');
+      const desc = document.getElementById('turn-description-text');
+      const label = document.getElementById('controls-label');
+
+      if (isUserKicker) {
+        badge.textContent = "공격";
+        badge.className = "bg-emerald-500 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-black";
+        desc.textContent = "골대를 향해 슛할 방향을 선택하세요!";
+        label.textContent = "슈팅 방향 선택";
+      } else {
+        badge.textContent = "수비";
+        badge.className = "bg-amber-500 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-black";
+        desc.textContent = "AI의 슛을 막아낼 다이빙 방향을 선택하세요!";
+        label.textContent = "골키퍼 다이빙 방향 선택";
+      }
+
+      document.getElementById('controls-direction').classList.remove('hidden');
+      document.getElementById('waiting-opp-banner').classList.add('hidden');
+
+      // 새 차례가 시작될 때 골키퍼 유니폼을 먼저 다시 그려 대기 중부터 색상이 보이게 합니다.
+      keeperState.x = 0.5;
+      keeperState.y = 0.38;
+      keeperState.bodyAngle = 0;
+      drawStadium();
+    }
+
+    // Direction Click Handler
+    document.querySelectorAll('.btn-dir').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        if (hasSelectedDirection) return;
+        const dir = e.currentTarget.dataset.dir;
+
+        if (gameMode === 'single') {
+          handleSingleDirectionSelect(dir);
+        } else {
+          await handleMultiDirectionSelect(dir);
+        }
+      });
+    });
+
+    function handleSingleDirectionSelect(userDir) {
+      hasSelectedDirection = true;
+      document.getElementById('controls-direction').classList.add('hidden');
+
+      const isUserKicker = (singleState.kickerRole === 'p1');
+      const directions = ['left', 'center', 'right'];
+      const aiDir = directions[Math.floor(Math.random() * 3)];
+
+      const kickerChoice = isUserKicker ? userDir : aiDir;
+      const keeperChoice = isUserKicker ? aiDir : userDir;
+
+      // Resolve Rules
+      let isGoal = false;
+      let isSaved = false;
+      let isMiss = false;
+
+      if (kickerChoice === keeperChoice) {
+        // 같은 방향으로 뛰어도 10% 확률로 골키퍼를 비켜 득점
+        if (Math.random() < 0.10) {
+          isGoal = true;
+        } else {
+          isSaved = true;
+        }
+      } else {
+        // 다른 방향은 90% 득점, 10% 실축
+        if (Math.random() < 0.90) {
+          isGoal = true;
+        } else {
+          isMiss = true;
+        }
+      }
+
+      const result = { isGoal, isSaved, isMiss, kickerChoice, keeperChoice };
+
+      triggerShotAnimation(kickerChoice, keeperChoice, result, () => {
+        if (isUserKicker) {
+          singleState.p1Kicks.push(isGoal);
+          if (isGoal) singleState.p1Score++;
+          singleState.kickerRole = 'p2'; // AI turns to kick
+        } else {
+          singleState.p2Kicks.push(isGoal);
+          if (isGoal) singleState.p2Score++;
+          singleState.kickerRole = 'p1'; // User turns to kick
+          singleState.round++;
+        }
+
+        // Check Match Finish Conditions (Standard 5 kicks or sudden death)
+        if (checkMatchFinished(singleState.p1Kicks, singleState.p2Kicks, singleState.p1Score, singleState.p2Score, singleState.round)) {
+          renderSingleSummaryView();
+        } else {
+          renderSingleTurn();
+        }
+      });
+    }
+
+    function checkMatchFinished(k1Array, k2Array, s1, s2, round) {
+      const k1Count = k1Array.length;
+      const k2Count = k2Array.length;
+
+      // Both completed equal number of kicks
+      if (k1Count === k2Count) {
+        if (k1Count >= 5) {
+          if (s1 !== s2) return true; // Winner decided
+        }
+      } else if (k1Count > k2Count) {
+        // K1 has 1 more kick in current round
+        const k1Rem = 5 - k1Count;
+        const k2Rem = 5 - k2Count;
+        if (k1Count <= 5) {
+          if (s1 > s2 + k2Rem) return true; // P2 cannot catch up
+          if (s2 > s1 + k1Rem) return true; // P1 cannot catch up
+        }
+      }
+      return false;
+    }
+
+    async function handleMultiDirectionSelect(userDir) {
+      if (hasSelectedDirection || !currentRoomData) return;
+      hasSelectedDirection = true;
+
+      document.getElementById('controls-direction').classList.add('hidden');
+      document.getElementById('waiting-opp-banner').classList.remove('hidden');
+
+      const turn = currentRoomData.currentTurn;
+      const isMyKicker = (turn.kickerRole === myMultiRole);
+      const updatePayload = {};
+
+      if (isMyKicker) {
+        updatePayload['currentTurn.kickerChoice'] = userDir;
+      } else {
+        updatePayload['currentTurn.keeperChoice'] = userDir;
+      }
+      updatePayload['updatedAt'] = Date.now();
+
+      // Check if opponent already selected
+      const oppChoice = isMyKicker ? turn.keeperChoice : turn.kickerChoice;
+
+      if (oppChoice) {
+        // Both selected! Resolve turn
+        const kickerChoice = isMyKicker ? userDir : turn.kickerChoice;
+        const keeperChoice = isMyKicker ? turn.keeperChoice : userDir;
+
+        let isGoal = false;
+        let isSaved = false;
+        let isMiss = false;
+
+        if (kickerChoice === keeperChoice) {
+          // 같은 방향으로 뛰어도 10% 확률로 골키퍼를 비켜 득점
+          if (Math.random() < 0.10) {
+            isGoal = true;
+          } else {
+            isSaved = true;
+          }
+        } else {
+          // 다른 방향은 90% 득점, 10% 실축
+          if (Math.random() < 0.90) {
+            isGoal = true;
+          } else {
+            isMiss = true;
+          }
+        }
+
+        updatePayload['currentTurn.roundPhase'] = 'animating';
+        updatePayload['currentTurn.lastResult'] = {
+          isGoal, isSaved, isMiss, kickerChoice, keeperChoice
+        };
+      }
+
+      try {
+        await updateDoc(roomDocRef(currentRoomId), updatePayload);
+      } catch (e) {
+        console.error("Multi direction select error:", e);
+      }
+    }
+
+    function syncMultiGameView() {
+      if (!currentRoomData) return;
+
+      document.getElementById('screen-room-waiting').classList.add('hidden');
+      document.getElementById('screen-game').classList.remove('hidden');
+      document.getElementById('screen-game').classList.add('flex');
+
+      const room = currentRoomData;
+      const turn = room.currentTurn;
+
+      const p1 = room.host;
+      const p2 = room.guest;
+
+      document.getElementById('p1-name').textContent = `${p1.name} ${myMultiRole === 'host' ? '(나)' : ''}`;
+      document.getElementById('p2-name').textContent = `${p2?.name || '상대'} ${myMultiRole === 'guest' ? '(나)' : ''}`;
+
+      updateScoreboardUI(p1.score, p2?.score || 0, p1.kicks || [], p2?.kicks || [], turn.round);
+      resizeCanvas();
+
+      const isMyKicker = (turn.kickerRole === myMultiRole);
+      const myChoice = isMyKicker ? turn.kickerChoice : turn.keeperChoice;
+
+      const badge = document.getElementById('turn-role-badge');
+      const desc = document.getElementById('turn-description-text');
+      const label = document.getElementById('controls-label');
+
+      if (turn.roundPhase === 'choosing') {
+        // 다음 키커/키퍼 차례가 확정되면 슈팅 애니메이션을 기다리지 않고
+        // 준비 자세의 골키퍼를 새 팀 색상으로 즉시 갱신합니다.
+        keeperState.x = 0.5;
+        keeperState.y = 0.38;
+        keeperState.bodyAngle = 0;
+        drawStadium();
+
+        if (isMyKicker) {
+          badge.textContent = "공격";
+          badge.className = "bg-emerald-500 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-black";
+          desc.textContent = myChoice ? "상대 키퍼의 다이빙 선택을 기다리는 중..." : "슛 방향을 선택하세요!";
+          label.textContent = "슈팅 방향 선택";
+        } else {
+          badge.textContent = "수비";
+          badge.className = "bg-amber-500 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-black";
+          desc.textContent = myChoice ? "상대 키커의 슈팅을 기다리는 중..." : "다이빙 방향을 선택하세요!";
+          label.textContent = "골키퍼 다이빙 방향 선택";
+        }
+
+        if (!myChoice) {
+          hasSelectedDirection = false;
+          document.getElementById('controls-direction').classList.remove('hidden');
+          document.getElementById('waiting-opp-banner').classList.add('hidden');
+        } else {
+          document.getElementById('controls-direction').classList.add('hidden');
+          document.getElementById('waiting-opp-banner').classList.remove('hidden');
+        }
+      } else if (turn.roundPhase === 'animating' && turn.lastResult) {
+        document.getElementById('controls-direction').classList.add('hidden');
+        document.getElementById('waiting-opp-banner').classList.add('hidden');
+
+        // Execute visual animation if host or guest
+        const res = turn.lastResult;
+        triggerShotAnimation(res.kickerChoice, res.keeperChoice, res, async () => {
+          if (myMultiRole === 'host') {
+            // Host updates DB for next round state
+            const isKickerHost = (turn.kickerRole === 'host');
+            const newHostKicks = [...(p1.kicks || [])];
+            const newGuestKicks = [...(p2?.kicks || [])];
+
+            let newHostScore = p1.score;
+            let newGuestScore = p2?.score || 0;
+
+            if (isKickerHost) {
+              newHostKicks.push(res.isGoal);
+              if (res.isGoal) newHostScore++;
+            } else {
+              newGuestKicks.push(res.isGoal);
+              if (res.isGoal) newGuestScore++;
+            }
+
+            const nextKickerRole = (turn.kickerRole === 'host') ? 'guest' : 'host';
+            const nextRound = (turn.kickerRole === 'guest') ? turn.round + 1 : turn.round;
+
+            const isFinished = checkMatchFinished(newHostKicks, newGuestKicks, newHostScore, newGuestScore, nextRound);
+
+            await updateDoc(roomDocRef(currentRoomId), {
+              'host.score': newHostScore,
+              'host.kicks': newHostKicks,
+              'guest.score': newGuestScore,
+              'guest.kicks': newGuestKicks,
+              currentTurn: {
+                round: nextRound,
+                kickerRole: nextKickerRole,
+                kickerChoice: null,
+                keeperChoice: null,
+                roundPhase: 'choosing',
+                lastResult: null
+              },
+              status: isFinished ? 'finished' : 'playing',
+              winner: isFinished ? (newHostScore > newGuestScore ? 'host' : newGuestScore > newHostScore ? 'guest' : 'draw') : null,
+              updatedAt: Date.now()
+            });
+          }
+        });
+      }
+    }
+
+    function updateScoreboardUI(s1, s2, kicks1, kicks2, round) {
+      document.getElementById('p1-score').textContent = s1;
+      document.getElementById('p2-score').textContent = s2;
+      document.getElementById('round-indicator').textContent = `${round > 5 ? '서든데스 ' : ''}${round} / 5 슛`;
+
+      const p1Dots = document.getElementById('p1-dots');
+      const p2Dots = document.getElementById('p2-dots');
+
+      p1Dots.innerHTML = '';
+      p2Dots.innerHTML = '';
+
+      const totalDots = Math.max(5, round);
+
+      for (let i = 0; i < totalDots; i++) {
+        // P1
+        const d1 = document.createElement('div');
+        if (i < kicks1.length) {
+          d1.className = kicks1[i] ? "w-3.5 h-3.5 rounded-full bg-emerald-500 shadow-sm" : "w-3.5 h-3.5 rounded-full bg-rose-500 shadow-sm";
+        } else {
+          d1.className = "w-3.5 h-3.5 rounded-full bg-slate-800 border border-slate-700";
+        }
+        p1Dots.appendChild(d1);
+
+        // P2
+        const d2 = document.createElement('div');
+        if (i < kicks2.length) {
+          d2.className = kicks2[i] ? "w-3.5 h-3.5 rounded-full bg-emerald-500 shadow-sm" : "w-3.5 h-3.5 rounded-full bg-rose-500 shadow-sm";
+        } else {
+          d2.className = "w-3.5 h-3.5 rounded-full bg-slate-800 border border-slate-700";
+        }
+        p2Dots.appendChild(d2);
+      }
+    }
+
+    function renderSingleSummaryView() {
+      document.getElementById('screen-game').classList.add('hidden');
+      document.getElementById('screen-summary').classList.remove('hidden');
+
+      const s1 = singleState.p1Score;
+      const s2 = singleState.p2Score;
+
+      document.getElementById('summary-p1-name').textContent = `${myNickname} (나)`;
+      document.getElementById('summary-p2-name').textContent = "AI 키퍼";
+      document.getElementById('summary-p1-score').textContent = s1;
+      document.getElementById('summary-p2-score').textContent = s2;
+
+      const badgeIcon = document.getElementById('summary-badge-icon');
+
+      if (s1 > s2) {
+        badgeIcon.className = "w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl border border-emerald-500/30 pulse-glow";
+        badgeIcon.innerHTML = `<i class="fa-solid fa-trophy"></i>`;
+        document.getElementById('summary-title').textContent = "승부차기 승리! 🏆";
+        document.getElementById('summary-subtitle').textContent = "예리한 판단력으로 AI와의 대결에서 승리했습니다!";
+        myWins++;
+        localStorage.setItem('penalty_wins', myWins);
+        document.getElementById('stat-wins').textContent = myWins;
+      } else if (s1 < s2) {
+        badgeIcon.className = "w-20 h-20 bg-rose-500/20 text-rose-400 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl border border-rose-500/30";
+        badgeIcon.innerHTML = `<i class="fa-solid fa-face-frown"></i>`;
+        document.getElementById('summary-title').textContent = "아쉬운 패배 ⚽";
+        document.getElementById('summary-subtitle').textContent = "AI 키퍼의 선방에 막혔습니다. 다시 도전해보세요!";
+      } else {
+        badgeIcon.className = "w-20 h-20 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl border border-amber-500/30";
+        badgeIcon.innerHTML = `<i class="fa-solid fa-handshake"></i>`;
+        document.getElementById('summary-title').textContent = "무승부 🤝";
+        document.getElementById('summary-subtitle').textContent = "팽팽한 명승부였습니다!";
+      }
+    }
+
+    function renderMultiSummaryView() {
+      if (!currentRoomData) return;
+
+      document.getElementById('screen-game').classList.add('hidden');
+      document.getElementById('screen-summary').classList.remove('hidden');
+
+      const room = currentRoomData;
+      const me = myMultiRole === 'host' ? room.host : room.guest;
+      const opp = myMultiRole === 'host' ? room.guest : room.host;
+
+      document.getElementById('summary-p1-name').textContent = me?.name || '나';
+      document.getElementById('summary-p2-name').textContent = opp?.name || '상대';
+      document.getElementById('summary-p1-score').textContent = me?.score || 0;
+      document.getElementById('summary-p2-score').textContent = opp?.score || 0;
+
+      const badgeIcon = document.getElementById('summary-badge-icon');
+      const isWinner = (room.winner === myMultiRole);
+
+      if (isWinner) {
+        badgeIcon.className = "w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl border border-emerald-500/30 pulse-glow";
+        badgeIcon.innerHTML = `<i class="fa-solid fa-crown"></i>`;
+        document.getElementById('summary-title').textContent = "멀티 대결 승리! 🏆";
+        document.getElementById('summary-subtitle').textContent = `${opp?.name || '상대'} 선수를 꺾고 승부차기 챔피언에 올랐습니다!`;
+        myWins++;
+        localStorage.setItem('penalty_wins', myWins);
+        document.getElementById('stat-wins').textContent = myWins;
+      } else if (room.winner === 'draw') {
+        badgeIcon.className = "w-20 h-20 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl border border-amber-500/30";
+        badgeIcon.innerHTML = `<i class="fa-solid fa-handshake"></i>`;
+        document.getElementById('summary-title').textContent = "무승부 🤝";
+        document.getElementById('summary-subtitle').textContent = "양 선수 모두 대단한 승부차기 실력을 보여주었습니다!";
+      } else {
+        badgeIcon.className = "w-20 h-20 bg-rose-500/20 text-rose-400 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl border border-rose-500/30";
+        badgeIcon.innerHTML = `<i class="fa-solid fa-heart-crack"></i>`;
+        document.getElementById('summary-title').textContent = "아쉬운 패배 💔";
+        document.getElementById('summary-subtitle').textContent = `${opp?.name || '상대'} 선수가 승리했습니다. 다음 경기에서 복수하세요!`;
+      }
+    }
+
+    // Navigation & Quitting
+    document.getElementById('btn-summary-rematch').addEventListener('click', () => {
+      if (gameMode === 'single') {
+        document.getElementById('btn-start-single').click();
+      } else {
+        leaveRoom();
+      }
+    });
+
+    document.getElementById('btn-summary-home').addEventListener('click', () => leaveRoom());
+    document.getElementById('btn-header-home').addEventListener('click', () => {
+      if (!document.getElementById('screen-game').classList.contains('hidden')) {
+        showCustomDialog("경기 중단", "진행 중인 경기를 포기하고 로비로 나가시겠습니까?", {
+          confirm: true,
+          onConfirm: () => leaveRoom()
+        });
+      } else {
+        leaveRoom();
+      }
+    });
+
+    document.getElementById('btn-quit-game').addEventListener('click', () => {
+      showCustomDialog("기권 / 포기", "정말 경기를 포기하고 나가시겠습니까?", {
+        confirm: true,
+        onConfirm: () => leaveRoom()
+      });
+    });
+
+    // Window init
+    window.addEventListener('load', () => {
+      initAuth();
+      resizeCanvas();
+    });
+  </script>
+</body>
+</html>
